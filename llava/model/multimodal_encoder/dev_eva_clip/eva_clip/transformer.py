@@ -189,9 +189,9 @@ class Attention(nn.Module):
         L, N, C = x.shape
         q, k, v = F.linear(x, self.in_proj_weight, self.in_proj_bias).chunk(3, dim=-1)
         if self.xattn:
-            q = q.contiguous().view(L, N, self.num_heads, -1).transpose(0, 1)
-            k = k.contiguous().view(L, N, self.num_heads, -1).transpose(0, 1)
-            v = v.contiguous().view(L, N, self.num_heads, -1).transpose(0, 1)
+            q = q.contiguous().view(L, N, self.num_heads, -1).swapaxes(0, 1)
+            k = k.contiguous().view(L, N, self.num_heads, -1).swapaxes(0, 1)
+            v = v.contiguous().view(L, N, self.num_heads, -1).swapaxes(0, 1)
 
             x = xops.memory_efficient_attention(
                 q,
@@ -202,18 +202,18 @@ class Attention(nn.Module):
                 attn_bias=xops.LowerTriangularMask() if attn_mask is not None else None,
             )
         else:
-            q = q.contiguous().view(L, N * self.num_heads, -1).transpose(0, 1)
-            k = k.contiguous().view(L, N * self.num_heads, -1).transpose(0, 1)
-            v = v.contiguous().view(L, N * self.num_heads, -1).transpose(0, 1)
+            q = q.contiguous().view(L, N * self.num_heads, -1).swapaxes(0, 1)
+            k = k.contiguous().view(L, N * self.num_heads, -1).swapaxes(0, 1)
+            v = v.contiguous().view(L, N * self.num_heads, -1).swapaxes(0, 1)
 
             if self.logit_scale is not None:
-                attn = torch.bmm(F.normalize(q, dim=-1), F.normalize(k, dim=-1).transpose(-1, -2))
+                attn = torch.bmm(F.normalize(q, dim=-1), F.normalize(k, dim=-1).swapaxes(-1, -2))
                 logit_scale = torch.clamp(self.logit_scale, max=self.logit_scale_max).exp()
                 attn = attn.view(N, self.num_heads, L, L) * logit_scale
                 attn = attn.view(-1, L, L)
             else:
                 q = q * self.scale
-                attn = torch.bmm(q, k.transpose(-1, -2))
+                attn = torch.bmm(q, k.swapaxes(-1, -2))
 
             if attn_mask is not None:
                 if attn_mask.dtype == torch.bool:
@@ -230,7 +230,7 @@ class Attention(nn.Module):
         if self.head_scale is not None:
             x = x.view(N, self.num_heads, L, C) * self.head_scale
             x = x.view(-1, L, C)
-        x = x.transpose(0, 1).reshape(L, N, C)
+        x = x.swapaxes(0, 1).reshape(L, N, C)
         x = self.out_proj(x)
         x = self.out_drop(x)
         return x
@@ -282,19 +282,19 @@ class CustomAttention(nn.Module):
             x = xops.memory_efficient_attention(q, k, v, p=self.xattn_drop, scale=self.scale if self.logit_scale is None else None, attn_bias=xops.LowerTriangularMask() if attn_mask is not None else None)
         else:
             # B*H, L, C
-            q = q.contiguous().view(N_q, B_q * self.num_heads, -1).transpose(0, 1)
-            k = k.contiguous().view(N_k, B_k * self.num_heads, -1).transpose(0, 1)
-            v = v.contiguous().view(N_v, B_v * self.num_heads, -1).transpose(0, 1)
+            q = q.contiguous().view(N_q, B_q * self.num_heads, -1).swapaxes(0, 1)
+            k = k.contiguous().view(N_k, B_k * self.num_heads, -1).swapaxes(0, 1)
+            v = v.contiguous().view(N_v, B_v * self.num_heads, -1).swapaxes(0, 1)
 
             if self.logit_scale is not None:
                 # B*H, N_q, N_k
-                attn = torch.bmm(F.normalize(q, dim=-1), F.normalize(k, dim=-1).transpose(-1, -2))
+                attn = torch.bmm(F.normalize(q, dim=-1), F.normalize(k, dim=-1).swapaxes(-1, -2))
                 logit_scale = torch.clamp(self.logit_scale, max=self.logit_scale_max).exp()
                 attn = attn.view(B_q, self.num_heads, N_q, N_k) * logit_scale
                 attn = attn.view(-1, N_q, N_k)
             else:
                 q = q * self.scale
-                attn = torch.bmm(q, k.transpose(-1, -2))
+                attn = torch.bmm(q, k.swapaxes(-1, -2))
 
             if attn_mask is not None:
                 if attn_mask.dtype == torch.bool:
@@ -311,7 +311,7 @@ class CustomAttention(nn.Module):
         if self.head_scale is not None:
             x = x.view(B_q, self.num_heads, N_q, C_q) * self.head_scale
             x = x.view(-1, N_q, C_q)
-        x = x.transpose(0, 1).reshape(N_q, B_q, C_q)
+        x = x.swapaxes(0, 1).reshape(N_q, B_q, C_q)
         x = self.out_proj(x)
         x = self.out_drop(x)
         return x

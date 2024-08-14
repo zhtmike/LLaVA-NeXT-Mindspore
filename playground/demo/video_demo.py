@@ -178,7 +178,7 @@ def run_inference(args):
         if os.path.exists(video_path):
             if "gpt4v" != args.model_path:
                 video = load_video(video_path, args)
-                video = image_processor.preprocess(video, return_tensors="pt")["pixel_values"].half().cuda()
+                video = image_processor.preprocess(video, return_tensors="pt")["pixel_values"].half()
                 video = [video]
             else:
                 video = load_video_base64(video_path)
@@ -198,13 +198,13 @@ def run_inference(args):
             conv.append_message(conv.roles[1], None)
             prompt = conv.get_prompt()
 
-            input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+            input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0)
             if tokenizer.pad_token_id is None:
                 if "qwen" in tokenizer.name_or_path.lower():
                     print("Setting pad token to bos token for qwen model.")
                     tokenizer.pad_token_id = 151643
                     
-            attention_masks = input_ids.ne(tokenizer.pad_token_id).long().cuda()
+            attention_masks = input_ids.ne(tokenizer.pad_token_id).long()
 
             stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
             keywords = [stop_str]

@@ -98,7 +98,7 @@ def resize_evaclip_pos_embed(state_dict, model, interpolation: str = "bicubic", 
             pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
             pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
             pos_tokens = torch.nn.functional.interpolate(pos_tokens, size=(new_size, new_size), mode="bicubic", align_corners=False)
-            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
+            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(start_dim=1, end_dim=2)
             new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
             state_dict["visual.pos_embed"] = new_pos_embed
 
@@ -128,7 +128,7 @@ def resize_eva_pos_embed(state_dict, model, interpolation: str = "bicubic", seq_
             pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
             pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
             pos_tokens = torch.nn.functional.interpolate(pos_tokens, size=(new_size, new_size), mode="bicubic", align_corners=False)
-            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
+            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(start_dim=1, end_dim=2)
             new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
             state_dict["pos_embed"] = new_pos_embed
 
@@ -221,7 +221,7 @@ def resize_rel_pos_embed(state_dict, model, interpolation: str = "bicubic", seq_
             pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
             pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
             pos_tokens = torch.nn.functional.interpolate(pos_tokens, size=(new_size, new_size), mode="bicubic", align_corners=False)
-            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
+            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(start_dim=1, end_dim=2)
             new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
             state_dict["pos_embed"] = new_pos_embed
 

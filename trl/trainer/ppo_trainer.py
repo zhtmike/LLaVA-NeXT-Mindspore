@@ -780,9 +780,9 @@ class PPOTrainer(BaseTrainer):
         train_stats = stack_dicts(all_stats)
 
         # reshape advantages/ratios such that they are not averaged.
-        train_stats["policy/advantages"] = torch.flatten(train_stats["policy/advantages"]).unsqueeze(0)
+        train_stats["policy/advantages"] = torch.flatten(start_dim=train_stats["policy/advantages"]).unsqueeze(0)
         train_stats["policy/advantages"] = torch.nan_to_num(train_stats["policy/advantages"], WANDB_PADDING)
-        train_stats["policy/ratio"] = torch.flatten(train_stats["policy/ratio"]).unsqueeze(0)
+        train_stats["policy/ratio"] = torch.flatten(start_dim=train_stats["policy/ratio"]).unsqueeze(0)
 
         stats = self.record_step_stats(
             scores=scores,
@@ -1103,7 +1103,7 @@ class PPOTrainer(BaseTrainer):
             delta = rewards[:, t] + self.config.gamma * nextvalues - values[:, t]
             lastgaelam = delta + self.config.gamma * self.config.lam * lastgaelam
             advantages_reversed.append(lastgaelam)
-        advantages = torch.stack(advantages_reversed[::-1]).transpose(0, 1)
+        advantages = torch.stack(advantages_reversed[::-1]).swapaxes(0, 1)
 
         returns = advantages + values
         advantages = masked_whiten(advantages, mask)

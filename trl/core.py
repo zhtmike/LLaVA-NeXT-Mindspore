@@ -104,7 +104,7 @@ def stack_dicts(stats_dicts: List[Dict]) -> Dict:
     """Stack the values of a dict."""
     results = dict()
     for k in stats_dicts[0]:
-        stats_list = [torch.flatten(d[k]) for d in stats_dicts]
+        stats_list = [torch.flatten(start_dim=d[k]) for d in stats_dicts]
         results[k] = pad_sequence(stats_list, batch_first=True, padding_value=WANDB_PADDING)
     return results
 

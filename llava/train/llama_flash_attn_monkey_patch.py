@@ -28,9 +28,9 @@ def forward(
 
     bsz, q_len, _ = hidden_states.size()
 
-    query_states = self.q_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-    key_states = self.k_proj(hidden_states).view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-    value_states = self.v_proj(hidden_states).view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)  # shape: (b, num_heads, s, head_dim)
+    query_states = self.q_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).swapaxes(1, 2)
+    key_states = self.k_proj(hidden_states).view(bsz, q_len, self.num_key_value_heads, self.head_dim).swapaxes(1, 2)
+    value_states = self.v_proj(hidden_states).view(bsz, q_len, self.num_key_value_heads, self.head_dim).swapaxes(1, 2)  # shape: (b, num_heads, s, head_dim)
 
     kv_seq_len = key_states.shape[-2]
     if past_key_value is not None:
@@ -52,7 +52,7 @@ def forward(
 
     # Transform the data into the format required by flash attention
     qkv = torch.stack([query_states, key_states, value_states], dim=2)
-    qkv = qkv.transpose(1, 3)  # shape: [b, s, 3, num_heads, head_dim]
+    qkv = qkv.swapaxes(1, 3)  # shape: [b, s, 3, num_heads, head_dim]
     key_padding_mask = attention_mask
 
     if key_padding_mask is None:

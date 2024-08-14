@@ -67,7 +67,7 @@ class OpenCLIPVisionTower(nn.Module):
         elif self.select_feature == "cls_patch":
             image_features = image_features
         elif self.select_feature == "conv_flatten":
-            image_features = image_features.flatten(2).transpose(1, 2)
+            image_features = image_features.flatten(start_dim=2).swapaxes(1, 2)
         else:
             raise ValueError(f"Unexpected select feature: {self.select_feature}")
         return image_features

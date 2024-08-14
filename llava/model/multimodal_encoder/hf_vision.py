@@ -1,7 +1,6 @@
-import torch
-import torch.nn as nn
-
-from transformers import AutoModel, AutoImageProcessor, AutoConfig, CLIPImageProcessor
+import mindspore as ms
+import mindnlp.core.ops as ops
+from mindnlp.transformers import AutoModel, AutoImageProcessor, AutoConfig, CLIPImageProcessor
 from llava.utils import rank0_print
 
 
@@ -31,8 +30,7 @@ class HFVisionTower(nn.Module):
             else:
                 self.image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14")
         rank0_print(f"Loaded image processor: {self.image_processor}")
-        self.vision_tower = AutoModel.from_pretrained(self.vision_tower_name, torch_dtype=torch.bfloat16, trust_remote_code=True).to("cuda")
-        self.device = self.vision_tower.device
+        self.vision_tower = AutoModel.from_pretrained(self.vision_tower_name, ms_dtype=ms.bfloat16, trust_remote_code=True)
         self.dtype = self.vision_tower.dtype
         self.config = self.vision_tower.config
 
@@ -47,7 +45,7 @@ class HFVisionTower(nn.Module):
 
         if self.select_feature in ["slicefour_patch", "slicefour_cls_patch"]:
             select_every_k_layer = len(image_forward_outs.hidden_states) // 4
-            image_features = torch.cat([image_forward_outs.hidden_states[i] for i in range(select_every_k_layer + self.select_layer, len(image_forward_outs.hidden_states), select_every_k_layer)], dim=-1)
+            image_features = ops.cat([image_forward_outs.hidden_states[i] for i in range(select_every_k_layer + self.select_layer, len(image_forward_outs.hidden_states), select_every_k_layer)], dim=-1)
             select_feature_type = select_feature_type.replace("slicefour_", "")
         else:
             image_features = image_forward_outs.hidden_states[self.select_layer]
@@ -64,26 +62,22 @@ class HFVisionTower(nn.Module):
         if type(images) is list:
             image_features = []
             for image in images:
-                image_forward_out = self.vision_tower(image.to(device=self.device, dtype=self.dtype).unsqueeze(0), output_hidden_states=True)
+                image_forward_out = self.vision_tower(image.to(dtype=self.dtype).unsqueeze(0), output_hidden_states=True)
                 image_feature = self.feature_select(image_forward_out).to(image.dtype)
                 image_features.append(image_feature)
         else:
-            image_forward_outs = self.vision_tower(images.to(device=self.device, dtype=self.dtype), output_hidden_states=True)
+            image_forward_outs = self.vision_tower(images.to(dtype=self.dtype), output_hidden_states=True)
             image_features = self.feature_select(image_forward_outs).to(images.dtype)
 
         return image_features
 
     @property
     def dummy_feature(self):
-        return torch.zeros(1, self.hidden_size, device=self.device, dtype=self.dtype)
+        return ops.zeros(1, self.hidden_size, dtype=self.dtype)
 
     # @property
     # def dtype(self):
     #     return self.vision_tower.dtype
-
-    # @property
-    # def device(self):
-    #     return self.vision_tower.device
 
     @property
     def hidden_size(self):

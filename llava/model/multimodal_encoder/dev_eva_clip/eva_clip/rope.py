@@ -18,7 +18,7 @@ def broadcat(tensors, dim=-1):
     expanded_dims = list(map(lambda t: (t[0], (t[1],) * num_tensors), max_dims))
     expanded_dims.insert(dim, (dim, dims[dim]))
     expandable_shapes = list(zip(*map(lambda t: t[1], expanded_dims)))
-    tensors = list(map(lambda t: t[0].expand(*t[1]), zip(tensors, expandable_shapes)))
+    tensors = list(map(lambda t: t[0].broadcast_to((*t[1],)), zip(tensors, expandable_shapes)))
     return torch.cat(tensors, dim=dim)
 
 

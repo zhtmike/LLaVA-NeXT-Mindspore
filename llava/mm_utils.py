@@ -4,7 +4,8 @@ import base64
 import math
 import ast
 import re
-import torch
+import mindspore as ms
+import mindnlp.core.ops as ops
 from transformers import StoppingCriteria
 from llava.constants import IMAGE_TOKEN_INDEX
 
@@ -91,8 +92,8 @@ def process_highres_image_crop_split(image, data_args, processor=None):
         processor = data_args.image_processor
     image_crop = resize_and_center_crop(image, crop_resolution)
     image_patches = extract_patches(image_crop, patch_size=split_resolution, overlap_ratio=0)
-    image_patches = [processor.preprocess(image_patch, return_tensors="pt")["pixel_values"][0] for image_patch in image_patches]
-    return torch.stack(image_patches, dim=0)
+    image_patches = [processor.preprocess(image_patch, return_tensors="ms")["pixel_values"][0] for image_patch in image_patches]
+    return ops.stack(image_patches, dim=0)
 
 
 def process_highres_image(image, processor, grid_pinpoints):
@@ -112,8 +113,8 @@ def process_highres_image(image, processor, grid_pinpoints):
     image_padded = image_padded.resize((select_size, select_size))
     image_patches = extract_patches(image_padded, patch_size=processor.size["shortest_edge"], overlap_ratio=0)
     image_patches = [image_original_resize] + image_patches
-    image_patches = [processor.preprocess(image_patch, return_tensors="pt")["pixel_values"][0] for image_patch in image_patches]
-    return torch.stack(image_patches, dim=0)
+    image_patches = [processor.preprocess(image_patch, return_tensors="ms")["pixel_values"][0] for image_patch in image_patches]
+    return ops.stack(image_patches, dim=0)
 
 
 def select_best_resolution(original_size, possible_resolutions):
@@ -289,8 +290,8 @@ def process_anyres_image(image, processor, grid_pinpoints):
     # image_original_resize = image_padded_square.resize((processor.size['shortest_edge'], processor.size['shortest_edge']))
 
     image_patches = [image_original_resize] + patches
-    image_patches = [processor.preprocess(image_patch, return_tensors="pt")["pixel_values"][0] for image_patch in image_patches]
-    return torch.stack(image_patches, dim=0)
+    image_patches = [processor.preprocess(image_patch, return_tensors="ms")["pixel_values"][0] for image_patch in image_patches]
+    return ops.stack(image_patches, dim=0)
 
 
 def load_image_from_base64(image):
@@ -329,12 +330,12 @@ def process_images(images, image_processor, model_cfg):
     elif image_aspect_ratio == "pad":
         for image in images:
             image = expand2square(image, tuple(int(x * 255) for x in image_processor.image_mean))
-            image = image_processor.preprocess(image, return_tensors="pt")["pixel_values"][0]
+            image = image_processor.preprocess(image, return_tensors="ms")["pixel_values"][0]
             new_images.append(image)
     else:
-        return image_processor.preprocess(images, return_tensors="pt")["pixel_values"]
+        return image_processor.preprocess(images, return_tensors="ms")["pixel_values"]
     if all(x.shape == new_images[0].shape for x in new_images):
-        new_images = torch.stack(new_images, dim=0)
+        new_images = ops.stack(new_images, dim=0)
     return new_images
 
 
@@ -354,8 +355,8 @@ def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX
         input_ids.extend(x[offset:])
 
     if return_tensors is not None:
-        if return_tensors == "pt":
-            return torch.tensor(input_ids, dtype=torch.long)
+        if return_tensors == "ms":
+            return ms.Tensor(input_ids, dtype=ms.int64)
         raise ValueError(f"Unsupported tensor type: {return_tensors}")
     return input_ids
 
@@ -377,14 +378,13 @@ class KeywordsStoppingCriteria(StoppingCriteria):
             cur_keyword_ids = tokenizer(keyword).input_ids
             if len(cur_keyword_ids) > 1 and cur_keyword_ids[0] == tokenizer.bos_token_id:
                 cur_keyword_ids = cur_keyword_ids[1:]
-            self.keyword_ids.append(torch.tensor(cur_keyword_ids))
+            self.keyword_ids.append(ms.Tensor(cur_keyword_ids))
         self.tokenizer = tokenizer
         self.start_len = input_ids.shape[1]
 
-    def __call__(self, output_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+    def __call__(self, output_ids: ms.Tensor, scores: ms.Tensor, **kwargs) -> bool:
         assert output_ids.shape[0] == 1, "Only support batch size 1 (yet)"  # TODO
         offset = min(output_ids.shape[1] - self.start_len, 3)
-        self.keyword_ids = [keyword_id.to(output_ids.device) for keyword_id in self.keyword_ids]
         for keyword_id in self.keyword_ids:
             if output_ids[0, -keyword_id.shape[0] :] == keyword_id:
                 return True

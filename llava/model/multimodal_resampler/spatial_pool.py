@@ -29,7 +29,7 @@ class SpatialPool(nn.Module):
         image_features_spatial = image_features.view(B, ori_H, ori_H, F).permute(0, 3, 1, 2)
         image_features_spatial_pool = self.pool(image_features_spatial)
 
-        return image_features_spatial_pool.flatten(2).transpose(1, 2).contiguous()
+        return image_features_spatial_pool.flatten(start_dim=2).swapaxes(1, 2).contiguous()
 
     @property
     def config(self):

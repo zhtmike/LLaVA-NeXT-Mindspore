@@ -2,16 +2,10 @@
 Taken from https://github.com/lucidrains/flamingo-pytorch
 """
 
-import torch
-from einops import rearrange, repeat
-
-try:
-    from einops_exts import rearrange_many
-except:
-    pass
-
-from torch import einsum, nn
-
+import mindnlp
+import mindnlp.core.nn as nn
+import mindnlp.core.ops as ops
+import mindnlp.core.serialization
 
 def exists(val):
     return val is not None
@@ -41,6 +35,20 @@ class PerceiverAttention(nn.Module):
         self.to_kv = nn.Linear(dim, inner_dim * 2, bias=False)
         self.to_out = nn.Linear(inner_dim, dim, bias=False)
 
+    def _rearange_in(self, x, h):
+        # b t n (h d) -> b h t n d
+        b, t, n, _ = x.shape
+        x = x.view(b, t, n, h, -1)
+        x = x.permute(0, 3, 1, 2, 4)
+        return x
+    
+    def _rearange_out(self, x):
+        # b h t n d -> b t n (h d)
+        b, _, t, n, _ = x.shape
+        x = x.permute(x, (0, 2, 3, 1, 4))
+        x = x.view(b, t, n, -1)
+        return x
+
     def forward(self, x, latents):
         """
         Args:
@@ -55,18 +63,20 @@ class PerceiverAttention(nn.Module):
         h = self.heads
 
         q = self.to_q(latents)
-        kv_input = torch.cat((x, latents), dim=-2)
+        kv_input = ops.cat((x, latents), dim=-2)
         k, v = self.to_kv(kv_input).chunk(2, dim=-1)
-        q, k, v = rearrange_many((q, k, v), "b t n (h d) -> b h t n d", h=h)
+        q = self._rearange_in(q, h)
+        k = self._rearange_in(k, h)
+        v = self._rearange_in(v, h)
         q = q * self.scale
 
         # attention
-        sim = einsum("... i d, ... j d  -> ... i j", q, k)
+        sim = ops.matmul(q, k.swapaxis(-1, -2))
         sim = sim - sim.amax(dim=-1, keepdim=True).detach()
         attn = sim.softmax(dim=-1)
 
-        out = einsum("... i j, ... j d -> ... i d", attn, v)
-        out = rearrange(out, "b h t n d -> b t n (h d)", h=h)
+        out = ops.matmul(attn, v)
+        out = self._rearange_out(out)
         return self.to_out(out)
 
 
@@ -84,9 +94,9 @@ class PerceiverResamplerModule(nn.Module):
         ff_mult=4,
     ):
         super().__init__()
-        self.latents = nn.Parameter(torch.randn(num_latents, dim))
-        self.frame_embs = nn.Parameter(torch.randn(max_num_frames, dim)) if exists(max_num_frames) else None
-        self.media_time_embs = nn.Parameter(torch.randn(max_num_media, 1, dim)) if exists(max_num_media) else None
+        self.latents = nn.Parameter(ops.randn(num_latents, dim))
+        self.frame_embs = nn.Parameter(ops.randn(max_num_frames, dim)) if exists(max_num_frames) else None
+        self.media_time_embs = nn.Parameter(ops.randn(max_num_media, 1, dim)) if exists(max_num_media) else None
 
         self.layers = nn.ModuleList([])
         for _ in range(depth):
@@ -113,14 +123,20 @@ class PerceiverResamplerModule(nn.Module):
 
         # frame and media time embeddings
         if exists(self.frame_embs):
-            frame_embs = repeat(self.frame_embs[:F], "F d -> b T F v d", b=b, T=T, v=v)
+            # F d -> b T F v d
+            frame_embs = self.frame_embs[:F][None, None, :, None, :]
+            frame_embs = ops.tile(frame_embs, (b, T, 1, v, 1))
             x = x + frame_embs
-        x = rearrange(x, "b T F v d -> b T (F v) d")  # flatten the frame and spatial dimensions
+        # flatten the frame and spatial dimensions
+        # b T F v d -> b T (F v) d
+        x = x.view(b, T, F * v, -1)
         if exists(self.media_time_embs):
             x = x + self.media_time_embs[:T]
 
         # blocks
-        latents = repeat(self.latents, "n d -> b T n d", b=b, T=T)
+        # n d -> b T n d
+        latents = self.latents[None, None, :, :]
+        latents = ops.tile(latents, (b, T, 1, 1))
         for attn, ff in self.layers:
             latents = attn(x, latents) + latents
             latents = ff(latents) + latents
@@ -139,7 +155,7 @@ class PerceiverResampler(nn.Module):
         self.perceiver = PerceiverResamplerModule(dim=vision_tower.hidden_size, depth=self.depth, num_latents=self.num_latents, ff_mult=self.ff_mult)
 
         if self.pretrained is not None:
-            self.load_state_dict(torch.load(self.pretrained))
+            self.load_state_dict(mindnlp.core.serialization.load(self.pretrained))
 
     def forward(self, image_features, *args, **kwargs):
         return self.perceiver(image_features[:, None, None]).squeeze(1)

@@ -1,5 +1,4 @@
-import torch
-import torch.nn as nn
+import mindnlp.core.nn as nn
 
 import math
 
@@ -24,7 +23,7 @@ class PoolerProjector(nn.Module):
         assert height * width == x.shape[1]
         x = x.view(x.shape[0], height, width, -1).permute(0, 3, 1, 2)
         x = self.conv_pool(x)
-        x = x.flatten(2).transpose(1, 2)
+        x = x.flatten(start_dim=2).swapaxes(1, 2)
         x = self.proj(x)
         return x
 

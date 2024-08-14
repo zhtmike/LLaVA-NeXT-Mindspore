@@ -13,20 +13,20 @@
 #    limitations under the License.
 
 
-from typing import List, Optional, Tuple, Union, Dict
-import torch
-import torch.nn as nn
-from torch.nn import CrossEntropyLoss
+from typing import List, Optional, Tuple, Union
+import mindspore as ms
+import mindnlp
+import mindnlp.core.nn as nn
 
-import transformers
-from transformers import AutoConfig, AutoModelForCausalLM
+import mindnlp.transformers
+from mindnlp.transformers import AutoConfig, AutoModelForCausalLM
 
-from transformers.modeling_outputs import CausalLMOutputWithPast
-from transformers.generation.utils import GenerateOutput
+from mindnlp.transformers.modeling_outputs import CausalLMOutputWithPast
+from mindnlp.transformers.generation.utils import GenerateOutput
 
 # from ...constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from llava.model.llava_arch import LlavaMetaModel, LlavaMetaForCausalLM
-from transformers import Qwen2MoeConfig, Qwen2MoeModel, Qwen2MoeForCausalLM
+from mindnlp.transformers import Qwen2MoeConfig, Qwen2MoeModel, Qwen2MoeForCausalLM
 
 # from .qwen.modeling_qwen import QWenLMHeadModel, QWenModel
 # from .qwen.configuration_qwen import QWenConfig
@@ -62,16 +62,16 @@ class LlavaQwenMoeForCausalLM(Qwen2MoeForCausalLM, LlavaMetaForCausalLM):
 
     def forward(
         self,
-        input_ids: torch.LongTensor = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[List[torch.FloatTensor]] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
+        input_ids: ms.Tensor = None,
+        attention_mask: Optional[ms.Tensor] = None,
+        position_ids: Optional[ms.Tensor] = None,
+        past_key_values: Optional[List[ms.Tensor]] = None,
+        inputs_embeds: Optional[ms.Tensor] = None,
+        labels: Optional[ms.Tensor] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
-        images: Optional[torch.FloatTensor] = None,
+        images: Optional[ms.Tensor] = None,
         image_sizes: Optional[List[List[int]]] = None,
         return_dict: Optional[bool] = None,
         modalities: Optional[List[str]] = ["image"],
@@ -113,15 +113,15 @@ class LlavaQwenMoeForCausalLM(Qwen2MoeForCausalLM, LlavaMetaForCausalLM):
                 return_dict=return_dict,
             )
 
-    @torch.no_grad()
+    @mindnlp.core.no_grad()
     def generate(
         self,
-        inputs: Optional[torch.Tensor] = None,
-        images: Optional[torch.Tensor] = None,
-        image_sizes: Optional[torch.Tensor] = None,
+        inputs: Optional[ms.Tensor] = None,
+        images: Optional[ms.Tensor] = None,
+        image_sizes: Optional[ms.Tensor] = None,
         modalities: Optional[List[str]] = ["image"],
         **kwargs,
-    ) -> Union[GenerateOutput, torch.LongTensor]:
+    ) -> Union[GenerateOutput, ms.Tensor]:
         position_ids = kwargs.pop("position_ids", None)
         attention_mask = kwargs.pop("attention_mask", None)
         if "inputs_embeds" in kwargs:

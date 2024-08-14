@@ -116,14 +116,14 @@ def eval_model(args):
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
 
-        input_ids = preprocess_qwen([line["conversations"][0],{'from': 'gpt','value': None}], tokenizer, has_image=True).cuda()
+        input_ids = preprocess_qwen([line["conversations"][0],{'from': 'gpt','value': None}], tokenizer, has_image=True)
         img_num = list(input_ids.squeeze()).count(IMAGE_TOKEN_INDEX)
 
         image_tensors = []
         for image_file in image_files:
             image = Image.open(os.path.join(args.image_folder, image_file))
             image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values']
-            image_tensors.append(image_tensor.half().cuda())
+            image_tensors.append(image_tensor.half())
         # image_tensors = torch.cat(image_tensors, dim=0)
 
         stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
@@ -178,7 +178,7 @@ def eval_model(args):
                 conv.append_message(conv.roles[1], None)
                 prompt = conv.get_prompt()
 
-                input_ids_new = preprocess_qwen([line["conversations"][i],{'from': 'gpt','value': None}], tokenizer, has_image=True).cuda()
+                input_ids_new = preprocess_qwen([line["conversations"][i],{'from': 'gpt','value': None}], tokenizer, has_image=True)
                 input_ids = torch.cat((input_ids, input_ids_new), dim=1)
                 img_num = list(input_ids_new.squeeze()).count(IMAGE_TOKEN_INDEX)
 

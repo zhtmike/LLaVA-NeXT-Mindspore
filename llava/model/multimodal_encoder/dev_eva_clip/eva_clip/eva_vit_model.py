@@ -138,7 +138,7 @@ class Attention(nn.Module):
             coords_h = torch.arange(window_size[0])
             coords_w = torch.arange(window_size[1])
             coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
-            coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+            coords_flatten = torch.flatten(start_dim=coords, end_dim=1)  # 2, Wh*Ww
             relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
             relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
             relative_coords[:, :, 0] += window_size[0] - 1  # shift to start from 0
@@ -214,7 +214,7 @@ class Attention(nn.Module):
             x = self.proj_drop(x)
         else:
             q = q * self.scale
-            attn = q @ k.transpose(-2, -1)
+            attn = q @ k.swapaxes(-2, -1)
 
             if self.relative_position_bias_table is not None:
                 relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(self.window_size[0] * self.window_size[1] + 1, self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
@@ -231,7 +231,7 @@ class Attention(nn.Module):
             attn = attn.softmax(dim=-1)
             attn = self.attn_drop(attn)
 
-            x = (attn @ v).transpose(1, 2).reshape(B, N, -1)
+            x = (attn @ v).swapaxes(1, 2).reshape(B, N, -1)
             x = self.inner_attn_ln(x)
             x = self.proj(x)
             x = self.proj_drop(x)
@@ -326,7 +326,7 @@ class PatchEmbed(nn.Module):
         B, C, H, W = x.shape
         # FIXME look at relaxing size constraints
         assert H == self.img_size[0] and W == self.img_size[1], f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
-        x = self.proj(x).flatten(2).transpose(1, 2)
+        x = self.proj(x).flatten(start_dim=2).swapaxes(1, 2)
         return x
 
 
@@ -343,7 +343,7 @@ class RelativePositionBias(nn.Module):
         coords_h = torch.arange(window_size[0])
         coords_w = torch.arange(window_size[1])
         coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
-        coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+        coords_flatten = torch.flatten(start_dim=coords, end_dim=)  # 2, Wh*Ww
         relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
         relative_coords[:, :, 0] += window_size[0] - 1  # shift to start from 0
@@ -531,7 +531,7 @@ class EVAVisionTransformer(nn.Module):
         x = self.patch_embed(x)
         batch_size, seq_len, _ = x.size()
 
-        cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        cls_tokens = self.cls_token.broadcast_to((batch_size, -1, -1))  # stole cls_tokens impl from Phil Wang, thanks
         x = torch.cat((cls_tokens, x), dim=1)
         if self.pos_embed is not None:
             x = x + self.pos_embed

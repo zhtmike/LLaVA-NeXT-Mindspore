@@ -13,11 +13,13 @@ from llava.conversation import conv_templates, SeparatorStyle
 from PIL import Image
 import requests
 import copy
-import torch
+import mindspore as ms
 
+# assign the variables to the local paths if you have downloaded them locally.
 pretrained = "lmms-lab/llama3-llava-next-8b"
+clip_model_path = None
+
 model_name = "llava_llama3"
-device = "cuda"
 device_map = "auto"
 tokenizer, model, image_processor, max_length = load_pretrained_model(pretrained, None, model_name, device_map=device_map) # Add any other thing you want to pass in llava_model_args
 
@@ -27,7 +29,7 @@ model.tie_weights()
 url = "https://github.com/haotian-liu/LLaVA/blob/1a91fc274d7c35a9b50b3cb29c4247ae5837ce39/images/llava_v1_5_radar.jpg?raw=true"
 image = Image.open(requests.get(url, stream=True).raw)
 image_tensor = process_images([image], image_processor, model.config)
-image_tensor = [_image.to(dtype=torch.float16, device=device) for _image in image_tensor]
+image_tensor = [_image.to(dtype=ms.float16) for _image in image_tensor]
 
 conv_template = "llava_llama_3" # Make sure you use correct chat template for different models
 question = DEFAULT_IMAGE_TOKEN + "\nWhat is shown in this image?"
@@ -36,7 +38,7 @@ conv.append_message(conv.roles[0], question)
 conv.append_message(conv.roles[1], None)
 prompt_question = conv.get_prompt()
 
-input_ids = tokenizer_image_token(prompt_question, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).to(device)
+input_ids = tokenizer_image_token(prompt_question, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="ms").unsqueeze(0)
 image_sizes = [image.size]
 
 

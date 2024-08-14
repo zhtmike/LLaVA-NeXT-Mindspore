@@ -68,7 +68,7 @@ class BertEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).broadcast_to((1, -1)))
         self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
 
         self.config = config
@@ -186,7 +186,7 @@ class BertSelfAttention(nn.Module):
         past_key_value = (key_layer, value_layer)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
-        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        attention_scores = torch.matmul(query_layer, key_layer.swapaxes(-1, -2))
 
         if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
             seq_length = hidden_states.size()[1]
@@ -1136,7 +1136,7 @@ class Qformer(nn.Module):
         x = self.ln_vision(image_features)
         image_atts = torch.ones(x.size()[:-1], dtype=torch.long).to(x.device)
 
-        query_tokens = self.query_tokens.expand(x.shape[0], -1, -1)
+        query_tokens = self.query_tokens.broadcast_to((x.shape[0], -1, -1))
         query_output = self.Qformer.bert(
             query_embeds=query_tokens,
             encoder_hidden_states=x,

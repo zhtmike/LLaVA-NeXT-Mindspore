@@ -52,7 +52,7 @@ def main(args):
         roles = conv.roles
 
     image = load_image(args.image_file)
-    image_tensor = image_processor.preprocess(image, return_tensors="pt")["pixel_values"].half().cuda()
+    image_tensor = image_processor.preprocess(image, return_tensors="pt")["pixel_values"].half()
 
     while True:
         try:
@@ -79,7 +79,7 @@ def main(args):
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
 
-        input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+        input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0)
         stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
         keywords = [stop_str]
         stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
